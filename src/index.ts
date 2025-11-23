@@ -1,0 +1,305 @@
+/**
+ * 版本更新检测配置选项
+ */
+export interface UpdateNotifierOptions {
+  /** 
+   * 轮询间隔时间，单位毫秒，默认 10000ms (10秒)
+   * 设置为 null 或 0 则禁用自动轮询（需手动调用 checkUpdate）
+   */
+  pollingInterval?: number | null;
+  /** 提示用户更新的方式，默认 'confirm' */
+  notifyType?: 'confirm' | 'custom';
+  /** 自定义提示函数，返回 true 表示确认刷新 */
+  onUpdate?: () => boolean | Promise<boolean>;
+  /** 检测到更新时的回调 */
+  onDetected?: () => void;
+  /** 是否在页面隐藏时暂停检测，默认 true（仅在自动轮询模式下有效） */
+  pauseOnHidden?: boolean;
+  /** 是否立即开始检测，默认 true（仅在自动轮询模式下有效） */
+  immediate?: boolean;
+  /** 自定义请求路径，默认 '/' */
+  indexPath?: string;
+  /** script 标签正则匹配，用于自定义匹配规则 */
+  scriptRegex?: RegExp;
+  /** 是否在控制台输出日志，默认 false */
+  debug?: boolean;
+}
+
+/**
+ * 版本更新检测配置选项（内部使用）
+ */
+interface InternalOptions extends Omit<UpdateNotifierOptions, 'pollingInterval'> {
+  pollingInterval: number;
+}
+
+/**
+ * 版本更新通知器类
+ */
+class VersionUpdateNotifier {
+  private lastSrcs: string[] | null = null;
+  private timerId: number | null = null;
+  private isPageVisible: boolean = true;
+  private isManualMode: boolean = false;
+  
+  private options: Required<InternalOptions>;
+  private scriptReg: RegExp;
+
+  constructor(options: UpdateNotifierOptions = {}) {
+    // 处理 pollingInterval 为 null 或 0 的情况
+    const pollingInterval = options.pollingInterval === null || options.pollingInterval === 0 
+      ? null 
+      : (options.pollingInterval || 10000);
+
+    this.isManualMode = pollingInterval === null;
+
+    this.options = {
+      pollingInterval: pollingInterval || 10000,
+      notifyType: options.notifyType || 'confirm',
+      onUpdate: options.onUpdate || null!,
+      onDetected: options.onDetected || (() => {}),
+      pauseOnHidden: options.pauseOnHidden !== false,
+      immediate: options.immediate !== false,
+      indexPath: options.indexPath || '/',
+      scriptRegex: options.scriptRegex || /\<script.*src=["'](?<src>[^"']+)/gm,
+      debug: options.debug || false
+    };
+
+    this.scriptReg = this.options.scriptRegex;
+
+    // 仅在自动轮询模式下设置页面可见性监听
+    if (!this.isManualMode && this.options.pauseOnHidden) {
+      this.setupVisibilityListener();
+    }
+
+    // 仅在自动轮询模式下且 immediate 为 true 时自动开始
+    if (!this.isManualMode && this.options.immediate) {
+      this.start();
+    }
+
+    this.log(this.isManualMode ? '手动模式已启用，请使用 checkUpdate() 方法检测更新' : `自动轮询模式已启用，间隔: ${this.options.pollingInterval}ms`);
+  }
+
+  /**
+   * 日志输出
+   */
+  private log(...args: any[]) {
+    if (this.options.debug) {
+      console.log('[VersionUpdateNotifier]', ...args);
+    }
+  }
+
+  /**
+   * 设置页面可见性监听
+   */
+  private setupVisibilityListener() {
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        this.isPageVisible = !document.hidden;
+        this.log('页面可见性变化:', this.isPageVisible ? '可见' : '隐藏');
+        
+        if (this.isPageVisible && !this.timerId) {
+          this.log('页面恢复可见，重新开始检测');
+          this.autoRefresh();
+        }
+      });
+    }
+  }
+
+  /**
+   * 获取最新页面中的 script 链接
+   */
+  private async extractNewScripts(): Promise<string[]> {
+    try {
+      const url = `${this.options.indexPath}?timestamp=${Date.now()}`;
+      this.log('请求URL:', url);
+      
+      const html = await fetch(url).then(res => res.text());
+      this.scriptReg.lastIndex = 0; // 重置正则下标
+      
+      const result: string[] = [];
+      let match: RegExpExecArray | null;
+      
+      while ((match = this.scriptReg.exec(html))) {
+        if (match.groups?.src) {
+          result.push(match.groups.src);
+        }
+      }
+      
+      this.log('提取到的script列表:', result);
+      return result;
+    } catch (error) {
+      console.error('[VersionUpdateNotifier] 获取页面内容失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 对比是否有更新
+   */
+  private async needUpdate(): Promise<boolean> {
+    const newScripts = await this.extractNewScripts();
+    
+    if (!this.lastSrcs) {
+      this.lastSrcs = newScripts;
+      this.log('首次记录script列表');
+      return false;
+    }
+
+    let result = false;
+
+    // 数量不同，说明有更新
+    if (this.lastSrcs.length !== newScripts.length) {
+      this.log('script数量变化:', this.lastSrcs.length, '->', newScripts.length);
+      result = true;
+    } else {
+      // 逐个对比
+      for (let i = 0; i < newScripts.length; i++) {
+        if (this.lastSrcs[i] !== newScripts[i]) {
+          this.log('script变化:', this.lastSrcs[i], '->', newScripts[i]);
+          result = true;
+          break;
+        }
+      }
+    }
+
+    this.lastSrcs = newScripts;
+    return result;
+  }
+
+  /**
+   * 自动刷新检测
+   */
+  private async autoRefresh() {
+    // 如果页面不可见且配置了暂停检测，则不执行
+    if (this.options.pauseOnHidden && !this.isPageVisible) {
+      this.log('页面不可见，暂停检测');
+      this.timerId = null;
+      return;
+    }
+
+    this.timerId = window.setTimeout(async () => {
+      const willUpdate = await this.needUpdate();
+      
+      if (willUpdate) {
+        this.log('检测到版本更新');
+        
+        // 触发检测到更新的回调
+        if (this.options.onDetected) {
+          this.options.onDetected();
+        }
+
+        let shouldReload = false;
+
+        // 根据配置的通知类型处理
+        if (this.options.notifyType === 'custom' && this.options.onUpdate) {
+          shouldReload = await this.options.onUpdate();
+        } else {
+          // 默认使用 confirm 提示
+          shouldReload = confirm('检测到新版本，点击确定将刷新页面并更新');
+        }
+
+        if (shouldReload) {
+          this.log('用户确认刷新，即将重载页面');
+          location.reload();
+          return; // 不再继续轮询
+        } else {
+          this.log('用户取消刷新');
+        }
+      }
+
+      // 继续下一轮检测
+      this.autoRefresh();
+    }, this.options.pollingInterval);
+  }
+
+  /**
+   * 开始检测
+   */
+  public start() {
+    this.log('开始版本更新检测');
+    if (this.timerId) {
+      this.log('检测已在运行中');
+      return;
+    }
+    this.autoRefresh();
+  }
+
+  /**
+   * 停止检测
+   */
+  public stop() {
+    this.log('停止版本更新检测');
+    if (this.timerId) {
+      clearTimeout(this.timerId);
+      this.timerId = null;
+    }
+  }
+
+  /**
+   * 手动触发一次检测（不显示提示，仅返回是否有更新）
+   * @returns 返回是否检测到更新
+   */
+  public async checkNow(): Promise<boolean> {
+    this.log('手动触发检测（静默模式）');
+    return await this.needUpdate();
+  }
+
+  /**
+   * 手动检测并提示用户更新
+   * 适用于完全手动控制的场景，会显示更新提示并根据用户选择刷新页面
+   * @returns 返回是否检测到更新
+   */
+  public async checkUpdate(): Promise<boolean> {
+    this.log('手动检测更新并提示');
+    const hasUpdate = await this.needUpdate();
+    
+    if (hasUpdate) {
+      this.log('检测到版本更新');
+      
+      // 触发检测到更新的回调
+      if (this.options.onDetected) {
+        this.options.onDetected();
+      }
+
+      let shouldReload = false;
+
+      // 根据配置的通知类型处理
+      if (this.options.notifyType === 'custom' && this.options.onUpdate) {
+        shouldReload = await this.options.onUpdate();
+      } else {
+        // 默认使用 confirm 提示
+        shouldReload = confirm('检测到新版本，点击确定将刷新页面并更新');
+      }
+
+      if (shouldReload) {
+        this.log('用户确认刷新，即将重载页面');
+        location.reload();
+      } else {
+        this.log('用户取消刷新');
+      }
+    }
+    
+    return hasUpdate;
+  }
+
+  /**
+   * 重置状态
+   */
+  public reset() {
+    this.log('重置状态');
+    this.lastSrcs = null;
+    this.stop();
+  }
+}
+
+/**
+ * 创建一个版本更新检测器实例
+ */
+export function createUpdateNotifier(options?: UpdateNotifierOptions): VersionUpdateNotifier {
+  return new VersionUpdateNotifier(options);
+}
+
+// 导出类，方便 TypeScript 用户使用类型
+export { VersionUpdateNotifier };
+
+export default VersionUpdateNotifier;

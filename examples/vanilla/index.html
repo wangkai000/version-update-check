@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Version Update Notifier - Vanilla JS Example</title>
+</head>
+<body>
+  <h1>版本更新检测示例</h1>
+  <div id="app">
+    <p>当前版本：v1.0.0</p>
+    <p>插件会自动检测版本更新，发现新版本时会提示刷新。</p>
+    
+    <div style="margin-top: 20px;">
+      <button id="checkNow">立即检测更新</button>
+      <button id="stopCheck">停止检测</button>
+      <button id="startCheck">开始检测</button>
+    </div>
+    
+    <div id="status" style="margin-top: 20px; padding: 10px; background: #f0f0f0;">
+      状态: 等待中...
+    </div>
+  </div>
+
+  <!-- 使用 UMD 版本 -->
+  <script src="../../dist/index.umd.js"></script>
+  <script>
+    // 创建检测器实例
+    const notifier = VersionUpdateNotifier.createUpdateNotifier({
+      pollingInterval: 10000,
+      debug: true,
+      onDetected: () => {
+        document.getElementById('status').textContent = '状态: 检测到新版本！';
+        document.getElementById('status').style.background = '#ffeb3b';
+      },
+      onUpdate: () => {
+        return confirm('检测到新版本，是否立即刷新页面？');
+      }
+    });
+
+    // 按钮事件
+    document.getElementById('checkNow').addEventListener('click', async () => {
+      const hasUpdate = await notifier.checkNow();
+      alert(hasUpdate ? '发现新版本！' : '当前已是最新版本');
+    });
+
+    document.getElementById('stopCheck').addEventListener('click', () => {
+      notifier.stop();
+      document.getElementById('status').textContent = '状态: 已停止检测';
+      document.getElementById('status').style.background = '#ffcdd2';
+    });
+
+    document.getElementById('startCheck').addEventListener('click', () => {
+      notifier.start();
+      document.getElementById('status').textContent = '状态: 检测中...';
+      document.getElementById('status').style.background = '#c8e6c9';
+    });
+  </script>
+</body>
+</html>
