@@ -4,3 +4,9 @@ dist
 .DS_Store
 .idea
 .vscode
+.jest/
+coverage/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts

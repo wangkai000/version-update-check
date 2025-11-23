@@ -1,4 +1,12 @@
 src
+.jest/
+coverage/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+jest.config.js
+.tests/
 node_modules
 *.log
 .DS_Store
