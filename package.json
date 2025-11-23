@@ -1,5 +1,5 @@
 {
-  "name": "web-version-checker",
+  "name": "easy-refresh",
   "version": "1.0.0",
   "description": "一个纯前端实现的版本更新自动提示刷新插件。plugin that automatically notifies and refreshes for version updates.",
   "type": "module",
