@@ -72,10 +72,8 @@ createApp(App).mount('#app');
 if (import.meta.env.PROD) {
   const options: UpdateNotifierOptions = {
     pollingInterval: 60000,
-    notifyType: 'custom',
-    onUpdate: async () => {
-      return confirm('发现新版本，是否立即刷新？');
-    },
+    notifyType: 'confirm',
+    promptMessage: '发现新版本，是否立即刷新？',
     onDetected: () => {
       console.log('检测到新版本');
     }
@@ -116,6 +114,7 @@ if (process.env.NODE_ENV === 'production') {
 | indexPath | string | '/' | 拉取页面内容的路径。 |
 | scriptRegex | RegExp | /\<script.*src=["'](?<src>[^"']+)/gm | 提取 script 的正则。 |
 | debug | boolean | false | 是否打印调试日志。 |
+| promptMessage | string | '检测到新版本，点击确定将刷新页面并更新' | confirm 模式的提示文案。 |
 
 ## 🧩 API
 

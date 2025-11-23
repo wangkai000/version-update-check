@@ -73,8 +73,8 @@ createApp(App).mount('#app');
 if (import.meta.env.PROD) {
   const options: UpdateNotifierOptions = {
     pollingInterval: 60000,
-    notifyType: 'custom',
-    onUpdate: async () => confirm('New version found, refresh now?'),
+    notifyType: 'confirm',
+    promptMessage: 'New version found, refresh now?',
     onDetected: () => console.log('New version detected')
   };
   createUpdateNotifier(options);
@@ -113,6 +113,7 @@ if (process.env.NODE_ENV === 'production') {
 | indexPath | string | '/' | Path to fetch page HTML. |
 | scriptRegex | RegExp | /\<script.*src=["'](?<src>[^"']+)/gm | Regex to extract script src list. |
 | debug | boolean | false | Print debug logs. |
+| promptMessage | string | '检测到新版本，点击确定将刷新页面并更新' | Prompt message for confirm mode. |
 
 ## API
 

@@ -23,6 +23,8 @@ export interface UpdateNotifierOptions {
   scriptRegex?: RegExp;
   /** 是否在控制台输出日志，默认 false */
   debug?: boolean;
+  /** 默认 confirm 提示文案（用于 notifyType='confirm'） */
+  promptMessage?: string;
 }
 
 /**
@@ -61,7 +63,8 @@ class VersionUpdateNotifier {
       immediate: options.immediate !== false,
       indexPath: options.indexPath || '/',
       scriptRegex: options.scriptRegex || /\<script.*src=["'](?<src>[^"']+)/gm,
-      debug: options.debug || false
+      debug: options.debug || false,
+      promptMessage: options.promptMessage || '检测到新版本，点击确定将刷新页面并更新'
     };
 
     this.scriptReg = this.options.scriptRegex;
@@ -195,7 +198,7 @@ class VersionUpdateNotifier {
           shouldReload = await this.options.onUpdate();
         } else {
           // 默认使用 confirm 提示
-          shouldReload = confirm('检测到新版本，点击确定将刷新页面并更新');
+          shouldReload = confirm(this.options.promptMessage);
         }
 
         if (shouldReload) {
@@ -268,7 +271,7 @@ class VersionUpdateNotifier {
         shouldReload = await this.options.onUpdate();
       } else {
         // 默认使用 confirm 提示
-        shouldReload = confirm('检测到新版本，点击确定将刷新页面并更新');
+        shouldReload = confirm(this.options.promptMessage);
       }
 
       if (shouldReload) {
