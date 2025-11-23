@@ -82,6 +82,7 @@ if (import.meta.env.PROD) {
   };
   createUpdateNotifier(options);
 }
+```
 
 ### 3) React + TypeScript（index.tsx）
 ```tsx
@@ -102,6 +103,7 @@ if (process.env.NODE_ENV === 'production') {
   };
   createUpdateNotifier(options);
 }
+```
 
 ## ⚙️ 参数说明（UpdateNotifierOptions）
 
