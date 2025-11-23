@@ -1,7 +1,7 @@
 # version-update-check
 
-[![npm version](https://img.shields.io/npm/v/web-version-checker.svg)](https://www.npmjs.com/package/web-version-checker)
-[![license](https://img.shields.io/npm/l/web-version-checker.svg)](https://github.com/yourusername/web-version-checker/blob/main/LICENSE)
+[![npm version](https://img.shields.io/npm/v/%40wangkai000%2Fversion-update-check.svg)](https://www.npmjs.com/package/@wangkai000/version-update-check)
+[![license](https://img.shields.io/npm/l/%40wangkai000%2Fversion-update-check.svg)](https://github.com/wangkai000/web-version-checker/blob/main/LICENSE)
 
 A pure front-end solution for automatic version update detection and refresh notification.
 
